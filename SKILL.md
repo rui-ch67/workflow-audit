@@ -3,6 +3,8 @@ name: workflow-audit
 description: Audit this project's Claude Code workflow setup (CLAUDE.md, doc routing, verification, agents, skills), save a baseline snapshot and print a before/after scorecard with prioritised fixes. Read-only; writes only .claude/audits/.
 argument-hint: "[--sessions] [--rebaseline] [--history] [--ascii]"
 disable-model-invocation: true
+context: fork
+model: sonnet
 allowed-tools: Bash(node "${CLAUDE_SKILL_DIR}/scripts/audit.mjs" *), Read, Glob, Grep
 ---
 
@@ -32,9 +34,9 @@ Arguments passed: `$ARGUMENTS`
    If `node` is missing or older than 18, follow **No Node** below instead.
 
 2. **Judge.** The output lists `Judgements to make`. Each has an id, a 0–max range, a `hash`, a question and the files to read.
-   - Read those files only.
-   - Grade each criterion with the anchors in [references/judging.md](references/judging.md). Pick the anchor that matches; don't average.
-   - Criteria listed as cached keep their earlier grade. Don't re-judge them.
+   - If nothing is listed, skip this step and step 3's new items. Don't open `references/judging.md`.
+   - Otherwise read only the listed files, and read [references/judging.md](references/judging.md) once. Pick the anchor that matches; don't average.
+   - Criteria listed as cached keep their earlier grade. Don't re-read their files or re-judge them.
 
 3. **Write `.claude/audits/judgements.json`.** Keep cached items, and add or replace the new ones:
 
@@ -67,7 +69,7 @@ Arguments passed: `$ARGUMENTS`
 
    If it prints `unverified` warnings, fix those citations once and run score again. Don't retry a second time: the 0 stands.
 
-5. **Report.** Show the scorecard exactly as printed, in a code block. Then list the recommendations. Mention `~` pillars as low confidence. On the first run, say the baseline is saved and re-running `/workflow-audit` after changes shows the delta.
+5. **Report.** Keep it short: the scorecard exactly as printed, in a code block, then 3–5 one-line recommendations. No walkthrough of your reading or reasoning unless the user asks. Mention `~` pillars as low confidence. On the first run, say the baseline is saved and re-running `/workflow-audit` after changes shows the delta.
 
 ## Flags
 
