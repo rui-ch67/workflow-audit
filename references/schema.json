@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workflow-audit/1",
+  "title": "workflow-audit snapshot (baseline.json, latest.json)",
+  "type": "object",
+  "required": ["schema", "rubric_version", "created_at", "collector", "profile", "pillars", "overall"],
+  "properties": {
+    "schema": { "const": "workflow-audit/1" },
+    "rubric_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "collector": { "enum": ["script", "llm"] },
+    "git": {
+      "type": "object",
+      "properties": {
+        "head": { "type": ["string", "null"] },
+        "dirty": { "type": ["boolean", "null"] }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": ["tier", "kind"],
+      "properties": {
+        "tier": { "enum": ["S", "M", "L"] },
+        "tier_source": { "enum": ["auto", "config"] },
+        "kind": { "enum": ["code", "docs", "empty"] },
+        "monorepo": { "type": "boolean" },
+        "files": { "type": "integer" },
+        "source_files": { "type": "integer" },
+        "contributors_90d": { "type": ["integer", "null"] },
+        "stacks": { "type": "array", "items": { "type": "string" } },
+        "partial": { "type": "boolean" },
+        "file_source": { "enum": ["git", "walk"] }
+      }
+    },
+    "facts": {
+      "description": "Counts, paths and hashes only. Never file contents.",
+      "type": "object"
+    },
+    "pillars": {
+      "type": "object",
+      "required": ["P1", "P2", "P3", "P4", "P5"],
+      "additionalProperties": false,
+      "patternProperties": { "^P[1-5]$": { "$ref": "#/$defs/pillar" } }
+    },
+    "overall": {
+      "type": "object",
+      "properties": {
+        "score": { "type": ["number", "null"] },
+        "pillars_counted": { "type": "integer" }
+      }
+    },
+    "recommendations": { "type": "array", "items": { "$ref": "#/$defs/recommendation" } }
+  },
+  "$defs": {
+    "pillar": {
+      "type": "object",
+      "required": ["score", "earned", "applicable_max", "confidence", "criteria"],
+      "properties": {
+        "score": { "type": ["number", "null"], "minimum": 0, "maximum": 10 },
+        "earned": { "type": "number" },
+        "applicable_max": { "type": "number" },
+        "confidence": { "enum": ["high", "low"] },
+        "criteria": { "type": "array", "items": { "$ref": "#/$defs/criterion" } }
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "required": ["id", "kind", "max", "applies", "points", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^P[1-5]\\.[a-h]$" },
+        "kind": { "enum": ["D", "J"] },
+        "title": { "type": "string" },
+        "max": { "type": "integer" },
+        "applies": { "type": "boolean" },
+        "points": { "type": "number" },
+        "status": { "enum": ["ok", "na", "pending", "unverified"] },
+        "note": { "type": "string" },
+        "inputs": { "type": "array", "items": { "type": "string" } },
+        "input_hash": { "type": ["string", "null"] },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["path", "lines", "quote"],
+      "properties": {
+        "path": { "type": "string" },
+        "lines": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2 },
+        "quote": { "type": "string", "maxLength": 200 },
+        "verified": { "type": "boolean" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["pillar", "text"],
+      "properties": {
+        "pillar": { "type": "string", "pattern": "^P[1-5]$" },
+        "impact": { "enum": ["high", "medium", "low"] },
+        "effort": { "enum": ["S", "M", "L"] },
+        "text": { "type": "string" }
+      }
+    },
+    "judgements": {
+      "title": "judgements.json (written by Claude)",
+      "type": "object",
+      "required": ["rubric_version", "items"],
+      "properties": {
+        "rubric_version": { "type": "string" },
+        "items": {
+          "type": "object",
+          "patternProperties": {
+            "^P[1-5]\\.[a-h]$": {
+              "type": "object",
+              "required": ["grade", "input_hash"],
+              "properties": {
+                "grade": { "type": "integer", "minimum": 0 },
+                "input_hash": { "type": "string" },
+                "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+                "note": { "type": "string" }
+              }
+            }
+          }
+        },
+        "recommendations": { "type": "array", "items": { "$ref": "#/$defs/recommendation" } }
+      }
+    }
+  }
+}
