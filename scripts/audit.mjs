@@ -227,13 +227,13 @@ function listFiles(root, { noGit }) {
         if (files.length >= MAX_FILES || Date.now() - start > TIME_BUDGET_MS) { partial = true; break outer; }
         const r = d ? `${d}/${e.name}` : e.name;
         if (e.isSymbolicLink()) continue;
-        if (e.isDirectory()) { if (!DENY_DIRS.has(e.name)) stack.push(r); } else if (e.isFile()) files.push(r);
+        if (e.isDirectory()) { if (!DENY_DIRS.has(e.name) && r !== '.claude/worktrees') stack.push(r); } else if (e.isFile()) files.push(r);
       }
     }
   }
   const selfRel = rel(root, SELF_DIR);
   const selfInside = selfRel && !selfRel.startsWith('..') && !path.isAbsolute(selfRel);
-  files = files.filter((f) => !f.startsWith('.claude/audits/')
+  files = files.filter((f) => !f.startsWith('.claude/audits/') && !f.startsWith('.claude/worktrees/')
     && !(selfInside && (f === selfRel || f.startsWith(selfRel + '/')))
     && !f.split('/').some((s) => DENY_DIRS.has(s)));
   if (files.length > MAX_FILES) { files = files.slice(0, MAX_FILES); partial = true; }

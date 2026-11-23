@@ -88,6 +88,12 @@ test('empty project: scores without crashing, mostly n/a', () => {
   assert.equal(snapshot.pillars.P4.score, null);
 });
 
+test('.claude/worktrees copies are not scanned', () => {
+  const { f } = run('solo-app', { '.claude/worktrees/wt1/src/x.js': 'x\n', '.claude/worktrees/wt1/CLAUDE.md': '# copy\n' });
+  assert.equal(f.profile.source_files, 5);
+  assert.deepEqual(f.facts.nested_claude_md, []);
+});
+
 test('AGENTS.md alone earns half of P1.a', () => {
   const { f } = run('empty', { 'AGENTS.md': '# agents\n' });
   assert.equal(pts(f, 'P1.a'), 1);
