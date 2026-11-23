@@ -94,6 +94,20 @@ test('.claude/worktrees copies are not scanned', () => {
   assert.deepEqual(f.facts.nested_claude_md, []);
 });
 
+test('broken refs: subfolder-relative paths and code tokens are not flagged', () => {
+  const { f } = run('solo-app', {
+    'ios/App/UI/Theme.swift': 'x\n',
+    'CLAUDE.md': '# x\n\n- Colours in `UI/Theme.swift`; keep `.system` fonts; bump `major.minor`.\n- Old: `UI/Gone.swift`.\n',
+  });
+  assert.deepEqual(f.facts.broken_refs, ['UI/Gone.swift (CLAUDE.md:4)']);
+});
+
+test('CLAUDE.md importing AGENTS.md is not penalised as an import', () => {
+  const { f } = run('monorepo', { 'AGENTS.md': `# rules\n${'- rule\n'.repeat(200)}`, 'CLAUDE.md': '@AGENTS.md\n\n# Notes\n- See `docs/`.\n', 'docs/a.md': 'x\n' });
+  assert.equal(f.facts.imported_tokens, 0);
+  assert.equal(pts(f, 'P2.c'), 2);
+});
+
 test('AGENTS.md alone earns half of P1.a', () => {
   const { f } = run('empty', { 'AGENTS.md': '# agents\n' });
   assert.equal(pts(f, 'P1.a'), 1);

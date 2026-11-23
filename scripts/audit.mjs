@@ -100,6 +100,7 @@ const BUILTIN_COMMANDS = new Set([
 ]);
 const SIDE_EFFECT_NAME = /(deploy|ship|release|publish|migrat|delete|drop|destroy|push|rollback)/i;
 const SIDE_EFFECT_WORKFLOW = /(deploy|release|publish|migrat|ship)/i;
+const FILE_EXT = /[\w-]\.(md|mdx|txt|rst|json|jsonc|ya?ml|toml|ini|env|lock|[cm]?[jt]sx?|vue|svelte|py|go|rs|java|kts?|cs|swift|rb|php|c|h|cc|cpp|hpp|dart|scala|exs?|sh|bash|ps1|sql|prisma|graphql|css|scss|html|xml|gradle|plist|xcconfig|pbxproj|storyboard|png|svg|jpe?g|pdf)$/i;
 const SCRIPT_EXT = new Set(['.sh', '.bash', '.py', '.mjs', '.js', '.cjs', '.ts', '.ps1', '.rb']);
 
 const toPosix = (p) => p.split(path.sep).join('/');
@@ -280,7 +281,9 @@ function loadContext(root) {
       if (im.p.startsWith('~/') || path.isAbsolute(im.p)) { externalImports++; continue; }
       const target = path.resolve(path.dirname(abs), im.p);
       if (!within(root, target)) { externalImports++; continue; }
-      if (exists(target) && !isDir(target)) visit(target, depth + 1, 'import');
+      // CLAUDE.md -> @AGENTS.md is the recommended alias pattern: count it as root, not an import.
+      const alias = via === 'root' && rel(root, target) === 'AGENTS.md';
+      if (exists(target) && !isDir(target)) visit(target, depth + 1, alias ? 'root' : 'import');
     }
   };
   for (const f of rootFiles) visit(path.join(root, f), 0, 'root');
@@ -309,7 +312,7 @@ function pathRefs(text) {
       if (/:\/\/|^mailto:|^#|[*<>{}$]|^[~/\\]|^-|^@/.test(c)) continue;
       c = c.replace(/#.*$/, '').replace(/:\d+(-\d+)?$/, '').replace(/[.,;:]+$/, '');
       if (!c || c === '.' || c === '..') continue;
-      const hasExt = /\.[A-Za-z0-9]{1,6}$/.test(c);
+      const hasExt = FILE_EXT.test(c);
       if (!c.includes('/') && !hasExt) continue;
       refs.push({ ref: c, n, hasExt, dirLike: c.endsWith('/') });
     }
@@ -684,10 +687,12 @@ export function collect(root, opts = {}) {
       const fromFile = path.resolve(path.dirname(l.abs), r.ref);
       const fromRoot = path.resolve(root, r.ref);
       const first = r.ref.replace(/^\.\//, '').split('/')[0];
-      const plausible = r.ref.startsWith('.') || exists(path.join(root, first)) || r.hasExt;
+      const plausible = /^\.{1,2}\//.test(r.ref) || exists(path.join(root, first)) || r.hasExt;
       if (l.via === 'root' && (r.dirLike || /\.(md|mdx|txt|rst)$/i.test(r.ref))) docRefs.push(r.ref);
       if (!plausible) continue;
-      const ok = exists(fromFile) || exists(fromRoot) || (!r.ref.includes('/') && basenames.has(r.ref)) || fileSet.has(r.ref.replace(/^\.\//, ''));
+      const bare = r.ref.replace(/^\.\//, '').replace(/\/$/, '');
+      const ok = exists(fromFile) || exists(fromRoot) || (!r.ref.includes('/') && basenames.has(r.ref)) || fileSet.has(bare)
+        || files.some((f) => f.endsWith('/' + bare) || f.includes('/' + bare + '/'));
       if (!ok) broken.push(`${r.ref} (${l.path}:${r.n})`);
     }
     for (const b of brokenCommandRefs(l.text, cmds)) broken.push(`${b.ref} (${l.path}:${b.n})`);
